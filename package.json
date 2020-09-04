@@ -1,0 +1,25 @@
+{
+  "name": "meeting-connect-sdk",
+  "version": "1.0.0",
+  "description": "",
+  "main": "./src/index.ts",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "webpack --mode development && webpack-dev-server --config webpack.config.js",
+    "build": "webpack --mode production --config webpack.config.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "clean-webpack-plugin": "^3.0.0",
+    "html-webpack-plugin": "^4.4.1",
+    "ts-loader": "^8.0.3",
+    "tslint": "^6.1.3",
+    "typescript": "^4.0.2",
+    "uglifyjs-webpack-plugin": "^2.2.0",
+    "webpack": "^4.44.1",
+    "webpack-cli": "^3.3.12",
+    "webpack-dev-server": "^3.11.0"
+  }
+}
