@@ -1,7 +1,6 @@
 
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const { CleanWebpackPlugin } = require('clean-webpack-plugin');
-const UglifyJsPlugin = require('uglifyjs-webpack-plugin')
 var path = require('path');
 
 module.exports = {
@@ -29,7 +28,6 @@ module.exports = {
         new HtmlWebpackPlugin({
             template: path.resolve(__dirname, './public/index.html'),
         }),
-        new CleanWebpackPlugin(),
-        new UglifyJsPlugin()
+        new CleanWebpackPlugin()
     ]
 }
