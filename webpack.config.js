@@ -8,7 +8,7 @@ module.exports = {
     entry: __dirname + '/src/index.ts',
     output: {
         path: path.resolve(__dirname, './dist'),
-        filename: 'meeting-connect-sdk.js',
+        filename: 'RTCMeetingConnect_SDK.js',
     },
     module: {
         rules: [{

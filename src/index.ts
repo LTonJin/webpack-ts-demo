@@ -1,26 +1,23 @@
+import { ButelMeetingConnect } from "./butelmeetingconnect/ButelMeetingConnect";
+import { config } from './config'
 
-import { ButelMeetingConnect } from './butelmeetingconnect/ButelMeetingConnect'
-
-import "@babel/polyfill";
-
-function CreateInstance (){
-    return new ButelMeetingConnect;
+function CreateInstance() {
+  return new ButelMeetingConnect();
 }
 const _sdk = {
-    "version": 'v1.1.0',
-    "CreateInstance": CreateInstance,
+  version: config.version,
+  CreateInstance: CreateInstance,
 };
-// declare global {
-
-//     interface Window {
-//        xxx: object
-//     }
-//     }
+declare global {
+  interface Window {
+    ButelRTCSDK: object;
+    ButelRTCSDKCallback: Function;
+  }
+}
 export default _sdk;
 
-// window["ButelRTCSDK"] = _sdk;
-class Seesion{
-    constructor() {
-    }
+window["ButelRTCSDK"] = _sdk;
+
+class ButelRTCSDKCallback {
 }
-new Seesion()
+window["ButelRTCSDKCallback"] = ButelRTCSDKCallback;

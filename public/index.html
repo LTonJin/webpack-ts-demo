@@ -1,11 +1,46 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Document</title>
 </head>
+
 <body>
-    DocumentDocument
+    <div>Local</div>
+    <video id="local_video" controls autoplay playsinline></video>
+
+    <button id="init">初始化</button>
+    <button id="create_meeting">创建会议</button>
+    <button id="join_meeting">加入会议</button>
+    <script>
+        const initDom = document.getElementById('init');
+        var instance;
+        initDom.onclick = function () {
+
+            instance = window["ButelRTCSDK"].CreateInstance();
+            instance.Init('62000334', '123456', () => {}, () => {});
+        }
+        document.getElementById('create_meeting').onclick = function() {
+            instance.CreateMeeting((res)=>{
+                console.log(res);
+                
+            }, (err)=> {
+                console.log(err);
+                
+            })
+        }
+        document.getElementById('join_meeting').onclick = function() {
+            instance.JoinMeeting('62000334', 'token', 'ltj', () => {
+                console.log('success');
+                
+            }, () => {
+                console.log('error');
+                
+            });
+        }
+    </script>
 </body>
+
 </html>
