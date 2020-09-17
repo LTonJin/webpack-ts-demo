@@ -102,13 +102,18 @@ export class ButelMeetingConnect extends EventEmitter {
         });
     }
     // 加入会议
-    JoinMeeting(meetingId: string, isSpeak: number, nickname: string, success: Function, error: Function) {
+    JoinMeeting(meetingId: string, isSpeak: boolean, nickname: string, success: Function, error: Function) {
         this.meetingConnect.join_meeting(meetingId, "232323", "90898383", isSpeak, nickname).then(res => {
-            log.info('JoinMeeting success ', res);
+            // log.info('JoinMeeting success ', res);
             success(res);
         }).catch(err => {
-            log.info('JoinMeeting error ', err);
+            // log.info('JoinMeeting error ', err);
             error(err)
         })
+    }
+
+    // 取消发布
+    unpublish() {
+        this.meetingConnect.unpublish();
     }
 }

@@ -14,6 +14,8 @@
     <button id="init">初始化</button>
     <button id="create_meeting">创建会议</button>
     <button id="join_meeting">加入会议</button>
+    <button id="unpublish">取消发布</button>
+    <button id="join_meeting2">加入会议2</button>
     <script>
         const initDom = document.getElementById('init');
         var instance;
@@ -32,7 +34,25 @@
             })
         }
         document.getElementById('join_meeting').onclick = function() {
-            instance.JoinMeeting('62000334', 'token', 'ltj', () => {
+            instance.JoinMeeting('62000334', true, 'ltj', () => {
+                console.log('success');
+                
+            }, () => {
+                console.log('error');
+                
+            });
+        }
+        document.getElementById('join_meeting2').onclick = function() {
+            instance.JoinMeeting('62000333', true, 'ltj', () => {
+                console.log('success');
+                
+            }, () => {
+                console.log('error');
+                
+            });
+        }
+        document.getElementById('unpublish').onclick = function() {
+            instance.unpublish(() => {
                 console.log('success');
                 
             }, () => {
