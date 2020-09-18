@@ -22,6 +22,7 @@ export class Session extends EventEmitter {
         } else {
             log.info("已经连接成功");
         }
+        this.onStartServerEvent();
     }
     destroy() {
         this.stopListener();
@@ -105,8 +106,8 @@ export class Session extends EventEmitter {
     }
 
     // 创建produce
-    async produce( kind: string, rtpParameters:any) {
-        return await this.socket.request("produce",  { kind, rtpParameters });
+    async produce( kind: string, rtpParameters:any, params: any) {
+        return await this.socket.request("produce",  { kind, rtpParameters, params });
     }
 
     // 关闭produce
@@ -155,145 +156,93 @@ export class Session extends EventEmitter {
     }
 
 /*******************************************************************************************/
-    // 本端开始发言通知
-    async start_speak_notify() {
+
+    // 监听服务的事件
+    onStartServerEvent() {
+        // 本端开始发言通知
         this.socket.response("start_speak_notify", () => {
             this.emit('start_speak_notify');
         });
-    }
-    
-    // 本端停止发言通知
-    async stop_speak_notify() {
+        // 本端停止发言通知
         this.socket.response("stop_speak_notify", () => {
             this.emit('stop_speak_notify');
         });
-    }
-
-    // 本端被踢下线通知
-    async kick_out_notify() {
+        // 本端被踢下线通知
         this.socket.response("kick_out_notify", () => {
             this.emit('kick_out_notify');
         });
-    }
-
-    // 议室成员加入通知
-    async user_join_notify() {
+        // 议室成员加入通知
         this.socket.response("user_join_notify", (res: any) => {
             this.emit('user_join_notify', res);
         });
-    }
-
-    // 会议室成员退出通知
-    async user_leave_notify() {
+        // 会议室成员退出通知
         this.socket.response("user_leave_notify", (res: any) => {
             this.emit('user_leave_notify', res);
         });
-    }
-
-    // 会议模式被改变通知
-    async meeting_mode_change_notify() {
+        // 会议模式被改变通知
         this.socket.response("meeting_mode_change_notify", (res: any) => {
             this.emit('meeting_mode_change_notify', res);
         });
-    }
-
-    // 收到主持人远程控制摄像头和Mic的通知
-    async host_control_notify() {
+        // 收到主持人远程控制摄像头和Mic的通知
         this.socket.response("host_control_notify", (res: any) => {
             this.emit('host_control_notify', res);
         });
-    }
-
-    // 主持人收到用户举手通知
-    async raise_hand_notify() {
+        // 主持人收到用户举手通知
         this.socket.response("raise_hand_notify", (res: any) => {
             this.emit('raise_hand_notify', res);
         });
-    }
-
-    // 收到主持人被移交通知
-    async host_transfer_notify() {
+        // 收到主持人被移交通知
         this.socket.response("host_transfer_notify", (res: any) => {
             this.emit('host_transfer_notify', res);
         });
-    }
-
-    // 即时消息通知
-    async recv_ui_msg_notify() {
+        // 即时消息通知
         this.socket.response("recv_ui_msg_notify", (res: any) => {
             this.emit('recv_ui_msg_notify', res);
         });
-    }
-
-    // 其他用户开始发言通知
-    async user_start_speak_notify() {
+        // 其他用户开始发言通知
         this.socket.response("user_start_speak_notify",(res: any) => {
             this.emit('user_start_speak_notify',res);
         });
-    }
-
-    // 其他用户停止发言通知
-    async user_stop_speak_notify() {
+        // 其他用户停止发言通知
         this.socket.response("user_stop_speak_notify",(res: any) => {
             this.emit('user_stop_speak_notify',res);
         });
-    }
-
-    // 会议结束通知
-    async meeting_end_notify() {
+        // 会议结束通知
         this.socket.response("meeting_end_notify",() => {
             this.emit('meeting_end_notify');
         });
-    }
-
-    // 会议异常通知
-    async meeting_exception_notify() {
+        // 会议异常通知
         this.socket.response("meeting_exception_notify",() => {
             this.emit('meeting_exception_notify');
         });
-    }
-
-    // 发言者发布视频通知
-    async user_publish_video_notify() {
+        // 发言者发布视频通知
         this.socket.response("user_publish_video_notify",(res: any) => {
             this.emit('user_publish_video_notify',res);
         });
-    }
-
-    // 发言者取消发布视频流通知
-    async user_unpublish_video_notify() {
+        // 发言者取消发布视频流通知
         this.socket.response("user_unpublish_video_notify",(res: any) => {
             this.emit('user_unpublish_video_notify',res);
         });
-    }
-
-    // 发言者发布音频流通知
-    async user_publish_audio_notify() {
+        // 发言者发布音频流通知
         this.socket.response("user_publish_audio_notify",(res: any) => {
             this.emit('user_publish_audio_notify',res);
         });
-    }
-
-    // 发言者取消发布音频流通知
-    async user_unpublish_audio_notify() {
+        // 发言者取消发布音频流通知
         this.socket.response("user_unpublish_audio_notify",(res: any) => {
             this.emit('user_unpublish_audio_notify',res);
         });
-    }
-
-    // 发言者发布文档视频流通知
-    async user_publish_share_notify() {
+        // 发言者发布文档视频流通知
         this.socket.response("user_publish_share_notify",(res: any) => {
             this.emit('user_publish_share_notify',res);
         });
-    }
-
-    // 发言者取消发布文档视频流通知
-    async user_unpublish_share_notify() {
+        // 发言者取消发布文档视频流通知
         this.socket.response("user_unpublish_share_notify",(res: any) => {
             this.emit('user_unpublish_share_notify',res);
         });
     }
+
+
+
 
     
 }

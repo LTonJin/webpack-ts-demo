@@ -103,7 +103,7 @@ export class ButelMeetingConnect extends EventEmitter {
     }
     // 加入会议
     JoinMeeting(meetingId: string, isSpeak: boolean, nickname: string, success: Function, error: Function) {
-        this.meetingConnect.join_meeting(meetingId, "232323", "90898383", isSpeak, nickname).then(res => {
+        this.meetingConnect.join_meeting(meetingId, "232323", "70827739", isSpeak, nickname).then(res => {
             // log.info('JoinMeeting success ', res);
             success(res);
         }).catch(err => {

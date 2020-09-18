@@ -1,6 +1,9 @@
 const mediasoup = require("mediasoup-client");
 import { Logger } from "../utils/ButelLogger";
 const log: any = new Logger("LibMediasoupClient");
+class Video {
+    constructor() {}
+}
 
 export class LibMediasoupClient {
     device: any;
@@ -8,10 +11,19 @@ export class LibMediasoupClient {
     recvTransport: any;
     videoProducer: any;
     audioProducer: any;
+    producerMap: Map<string, Map<string, any>> = new Map();; // 本地音视频、文档流
     consumerList: Map<string, Map<string, any>> = new Map(); // 所消费的流的信息
+
+    localVideo: HTMLElement = document.createElement('video'); // 自己的video
+    localShareVideo: HTMLElement = document.createElement('video'); // 分享的video
+
+    produceTrack: any = {};
+
     constructor() {}
     init() {
         // this.startListener();
+
+        
     }
     destroy() {
         // this.stopListener();
@@ -54,13 +66,33 @@ export class LibMediasoupClient {
                 }
             }
         );
-        this.sendTransport.on("produce", async ({ kind, rtpParameters }: any, callback: any, errback: any) =>
-            {
+        this.sendTransport.on(
+            "produce",
+            async (
+                { kind, rtpParameters }: any,
+                callback: any,
+                errback: any
+            ) => {
                 try {
-                    log.info("produce");
-                    const res = await session.produce(kind, rtpParameters);
+                    log.info("监听produce");
+                    let params:any = {};
+                    if (kind === 'video') {        
+                        const setParams = this.produceTrack.video.getSettings();
+                        params.width = setParams.width;
+                        params.height = setParams.height;
+                        params.framerate = setParams.frameRate;
+                        params.bitrate = rtpParameters.maxBitrate;
+
+                    } else if (kind === 'audio') {
+                        const setParams = this.produceTrack.audio.getSettings();
+                        params.channel = setParams.channelCount;
+                        params.samplerate = setParams.sampleRate;
+                        params.samplebit = setParams.sampleSize;
+                    }
+                    const res = await session.produce(kind, rtpParameters, params);
                     this.subscribe("62000334", "video", session);
-                    log.info("produce ", res);
+                    this.subscribe("62000334", "audio", session);
+                    log.info("produce 222", res);
                     callback({ id: res.producerId });
                 } catch (err) {
                     errback(err);
@@ -136,22 +168,28 @@ export class LibMediasoupClient {
         let stream;
         try {
             log.info("produce");
-            stream = await this.getUserMedia(kind === "share" ? false : true);
+            stream = await this.getUserMedia();
             const localVideo: any = document.querySelector("#local_video");
             localVideo.srcObject = stream;
             const track = stream.getVideoTracks()[0];
+            this.produceTrack.video = track;
+            console.log("track", track);
+            console.log("getSettings", track.getSettings());
+
             const params: any = { track };
             params.encodings = [
                 { maxBitrate: 100000 },
-                { maxBitrate: 300000 },
-                { maxBitrate: 900000 },
+                // { maxBitrate: 300000 },
+                // { maxBitrate: 900000 },
             ];
             params.codecOptions = {
                 videoGoogleStartBitrate: 1000,
             };
             const audioTrack = stream.getAudioTracks()[0];
+            this.produceTrack.audio = audioTrack;
             if (kind === "video") {
                 this.videoProducer = await this.sendTransport.produce(params);
+                
             } else if (kind === "audio") {
                 this.audioProducer = await this.sendTransport.produce({
                     track: audioTrack,
@@ -160,11 +198,14 @@ export class LibMediasoupClient {
                         opusDtx: 1,
                     },
                 });
-            } else {
-                // 不传kind和kind = share，默认音视频都订阅
+            } else if (kind === "share") {
                 this.videoProducer = await this.sendTransport.produce(params);
-                console.log('this.videoProducer111', this.videoProducer);
-                
+            } else {
+                // 不传kind，默认音视频都订阅
+                log.info(11111111111)
+                this.videoProducer = await this.sendTransport.produce(params);
+                console.log("this.videoProducer111", this.videoProducer);
+
                 this.audioProducer = await this.sendTransport.produce({
                     track: audioTrack,
                     codecOptions: {
@@ -172,9 +213,12 @@ export class LibMediasoupClient {
                         opusDtx: 1,
                     },
                 });
+                log.info(3333333333)
             }
+            
+
         } catch (err) {
-            log.info("创建本地produce失败");
+            log.info("创建本地produce失败",err);
         }
     }
 
@@ -204,15 +248,20 @@ export class LibMediasoupClient {
     // 订阅
     async subscribe(userId: string, kind: string, session: any) {
         const stream: any = await this.consume(userId, kind, session);
-        const video: any = document.createElement("video");
-        video.autoplay = true;
-        video.controls = true;
-        video.playsinline = true;
-        document.body.appendChild(video);
-        setTimeout(async () => {
-            video.srcObject = await stream.stream;
-            await session.consume_resume(userId, kind);
-        }, 1000);
+
+        const tdTemp:any = document.getElementById(`remote_video_${userId}`);
+        if (tdTemp) {
+            setTimeout(async () => {
+                tdTemp.srcObject = stream;
+                await session.consume_resume(userId, kind);
+            }, 1000);
+        }
+        
+        // tdTemp.id = "remote_td_" + userId;
+        // tdTemp.innerHTML = `<div>remote_video_${userId}</div><video id="remote_video_${userId}" controls autoplay playsinline></video>`
+
+        // document.body.appendChild(tdTemp);
+        
     }
 
     // 消费
@@ -228,10 +277,14 @@ export class LibMediasoupClient {
             rtpParameters: data.rtpParameters,
             codecOptions,
         });
-        // this.consumerList.set(userId, new Map(kind))
+
+        this.consumerList.set(userId, new Map().set(kind, consumer));
+        console.log("consumerList", this.consumerList);
+
         const stream = new MediaStream();
         stream.addTrack(consumer.track);
-        return { stream, consumerId: data.consumerId };
+        return stream;
+        // return { stream, consumerId: data.consumerId };
     }
 
     // 取消发布
@@ -244,8 +297,8 @@ export class LibMediasoupClient {
             stream.getVideoTracks()?.forEach((track: any) => {
                 track.stop();
             });
-            console.log('videoProducer', this.videoProducer);
-            
+            console.log("videoProducer", this.videoProducer);
+
             this.videoProducer.close();
             this.videoProducer = null;
         } else if (kind === "audio") {
@@ -263,13 +316,10 @@ export class LibMediasoupClient {
             this.videoProducer.close();
             this.videoProducer = null;
         }
-        
     }
 
     // 取消发布视频
 
     // 取消订阅
-    async unsubscribe(userId: string, kind: string) {
-
-    }
+    async unsubscribe(userId: string, kind: string) {}
 }

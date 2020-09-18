@@ -7,6 +7,7 @@ const log: any = new Logger("MeetingConnect");
 export class MeetingConnect extends EventEmitter {
     session = new Session();
     libMediasoupClient = new LibMediasoupClient();
+    meetingInfo: any;
     constructor() {
         super();
     }
@@ -31,6 +32,18 @@ export class MeetingConnect extends EventEmitter {
         // 本端开始发言通知
         this.session.on("start_speak_notify", () => {
             console.log("start_speak_notify");
+            this.meetingInfo.transportPramas.forEach( async (item: any) => {
+                if (item.direction === 0) {
+                    await this.libMediasoupClient.publish(this.session, {
+                        id: item.transportId,
+                        iceParameters: item.iceParameters,
+                        iceCandidates: item.iceCandidates,
+                        dtlsParameters: item.dtlsParameters,
+                    });
+                }
+                
+            });
+            
         });
 
         // 本端停止发言通知
@@ -81,6 +94,15 @@ export class MeetingConnect extends EventEmitter {
         // 其他用户开始发言通知
         this.session.on("user_start_speak_notify", (data: any) => {
             console.log(data, "user_start_speak_notify");
+            if (document.getElementById(`remote_td_${data.userId}`)) {
+                
+            } else {
+                const tdTemp:any = document.createElement("div");
+                tdTemp.id = "remote_td_" + data.userId;
+                tdTemp.innerHTML = `<div>remote_video_${data.userId}</div><video id="remote_video_${data.userId}" controls autoplay playsinline></video>`
+                document.body.appendChild(tdTemp);
+            }
+            
         });
 
         // 其他用户停止发言通知
@@ -99,8 +121,13 @@ export class MeetingConnect extends EventEmitter {
         });
 
         // 发言者发布视频通知
-        this.session.on("user_publish_video_notify", (data: any) => {
+        this.session.on("user_publish_video_notify", async (data: any) => {
             console.log(data, "user_publish_video_notify");
+            this.libMediasoupClient.subscribe(
+                data.userId,
+                "video",
+                this.session
+            );
         });
 
         // 发言者取消发布视频流通知
@@ -147,16 +174,17 @@ export class MeetingConnect extends EventEmitter {
         );
         if (res.ret === 0) {
             await this.libMediasoupClient.loadDevice(res.routerRtpCapabilities);
+            this.meetingInfo = res;
             res.transportPramas.forEach(async (item: any) => {
                 // 加入会议并且申请发言成功
                 if (item.direction === 0 && isSpeak) {
                     // produce的transport参数
-                    await this.libMediasoupClient.publish(this.session, {
-                        id: item.transportId,
-                        iceParameters: item.iceParameters,
-                        iceCandidates: item.iceCandidates,
-                        dtlsParameters: item.dtlsParameters,
-                    });
+                    // await this.libMediasoupClient.publish(this.session, {
+                    //     id: item.transportId,
+                    //     iceParameters: item.iceParameters,
+                    //     iceCandidates: item.iceCandidates,
+                    //     dtlsParameters: item.dtlsParameters,
+                    // });
                 } else if (item.direction === 1) {
                     // consume的transport参数
                     await this.libMediasoupClient.createRecvTransport(
@@ -169,29 +197,29 @@ export class MeetingConnect extends EventEmitter {
                         }
                     );
                     // 发言人列表循环订阅
-                    res.speakers.forEach((speaker: any) => {
-                        if (speaker.videoStreamState === 1) {
-                            this.libMediasoupClient.subscribe(
-                                speaker.userId,
-                                "video",
-                                this.session
-                            );
-                        }
-                        if (speaker.audioStreamState === 1) {
-                            this.libMediasoupClient.subscribe(
-                                speaker.userId,
-                                "audio",
-                                this.session
-                            );
-                        }
-                        if (speaker.dataStreamState === 1) {
-                            this.libMediasoupClient.subscribe(
-                                speaker.userId,
-                                "share",
-                                this.session
-                            );
-                        }
-                    });
+                    // res.speakers.forEach((speaker: any) => {
+                    //     if (speaker.videoStreamState === 1) {
+                    //         this.libMediasoupClient.subscribe(
+                    //             speaker.userId,
+                    //             "video",
+                    //             this.session
+                    //         );
+                    //     }
+                    //     if (speaker.audioStreamState === 1) {
+                    //         this.libMediasoupClient.subscribe(
+                    //             speaker.userId,
+                    //             "audio",
+                    //             this.session
+                    //         );
+                    //     }
+                    //     if (speaker.dataStreamState === 1) {
+                    //         this.libMediasoupClient.subscribe(
+                    //             speaker.userId,
+                    //             "share",
+                    //             this.session
+                    //         );
+                    //     }
+                    // });
                 }
             });
         } else {
