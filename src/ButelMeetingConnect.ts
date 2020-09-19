@@ -142,8 +142,4 @@ export class ButelMeetingConnect extends EventEmitter {
         })
     }
 
-    // 取消发布
-    unpublish() {
-        this.meetingConnect.unpublish();
-    }
 }

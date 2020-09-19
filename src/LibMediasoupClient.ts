@@ -1,15 +1,8 @@
 const mediasoup = require("mediasoup-client");
 import { Logger } from "./utils/ButelLogger";
 const log: any = new Logger("LibMediasoupClient");
+import { createVideo } from './utils/createVideo'
 
-function createVideo(id: string = "local") {
-    const dom: any = document.createElement("video");
-    dom.controls = true;
-    dom.autoplay = true;
-    dom.playsinline = true;
-    dom.id = id;
-    return dom;
-}
 
 export class LibMediasoupClient {
     session: any;
@@ -34,6 +27,15 @@ export class LibMediasoupClient {
     }
     destroy() {
         // this.stopListener();
+        this.session = null;
+        this.device = null;
+        this.sendTransport = null;
+        this.recvTransport = null;
+        this.videoProducer = null;
+        this.audioProducer = null;
+        this.consumerList = new Map();
+        this.localMediaStream = new Map();
+        this.localShareStream = new Map();
     }
     // startListener() {
     //     this.session.on('connect', (data: any) => {

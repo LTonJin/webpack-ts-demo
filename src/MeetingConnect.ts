@@ -2,11 +2,12 @@ import EventEmitter from "wolfy87-eventemitter";
 import { Session } from "./Session";
 import { LibMediasoupClient } from "./LibMediasoupClient";
 import { Logger } from "./utils/ButelLogger";
+import { createVideo } from './utils/createVideo'
 const log: any = new Logger("MeetingConnect");
 
 export class MeetingConnect extends EventEmitter {
-    session = new Session();
-    libMediasoupClient = new LibMediasoupClient();
+    session:any = new Session();
+    libMediasoupClient: any = new LibMediasoupClient();
     meetingInfo: any;
     constructor() {
         super();
@@ -20,6 +21,9 @@ export class MeetingConnect extends EventEmitter {
         this.stopListener();
         this.session.destroy();
         this.libMediasoupClient.destroy();
+        this.session = null;
+        this.libMediasoupClient = null;
+        this.meetingInfo = null;
     }
     startListener() {
         // 监听socket连接状态
@@ -32,11 +36,7 @@ export class MeetingConnect extends EventEmitter {
         // 本端开始发言通知
         this.session.on("start_speak_notify", () => {
             console.log("start_speak_notify");
-            this.meetingInfo.transportPramas.forEach(async (item: any) => {
-                if (item.direction === 0) {
-                    await this.libMediasoupClient.publish();
-                }
-            });
+            this.libMediasoupClient.publish();
         });
 
         // 本端停止发言通知
@@ -87,13 +87,7 @@ export class MeetingConnect extends EventEmitter {
         // 其他用户开始发言通知
         this.session.on("user_start_speak_notify", (data: any) => {
             console.log(data, "user_start_speak_notify");
-            if (document.getElementById(`remote_td_${data.userId}`)) {
-            } else {
-                const tdTemp: any = document.createElement("div");
-                tdTemp.id = "remote_td_" + data.userId;
-                tdTemp.innerHTML = `<div>remote_video_${data.userId}</div><video id="remote_video_${data.userId}" controls autoplay playsinline></video>`;
-                document.body.appendChild(tdTemp);
-            }
+
         });
 
         // 其他用户停止发言通知
@@ -144,6 +138,26 @@ export class MeetingConnect extends EventEmitter {
     }
     stopListener() {
         this.session.removeEvent("connect");
+        this.session.removeEvent("start_speak_notify");
+        this.session.removeEvent("stop_speak_notify");
+        this.session.removeEvent("kick_out_notify");
+        this.session.removeEvent("user_join_notify");
+        this.session.removeEvent("user_leave_notify");
+        this.session.removeEvent("meeting_mode_change_notify");
+        this.session.removeEvent("host_control_notify");
+        this.session.removeEvent("raise_hand_notify");
+        this.session.removeEvent("host_transfer_notify");
+        this.session.removeEvent("recv_ui_msg_notify");
+        this.session.removeEvent("user_start_speak_notify");
+        this.session.removeEvent("user_stop_speak_notify");
+        this.session.removeEvent("meeting_end_notify");
+        this.session.removeEvent("meeting_exception_notify");
+        this.session.removeEvent("user_publish_video_notify");
+        this.session.removeEvent("user_unpublish_video_notify");
+        this.session.removeEvent("user_publish_audio_notify");
+        this.session.removeEvent("user_unpublish_audio_notify");
+        this.session.removeEvent("user_publish_share_notify");
+        this.session.removeEvent("user_unpublish_share_notify");
     }
     async join_meeting(
         userId: string,

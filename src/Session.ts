@@ -22,13 +22,12 @@ export class Session extends EventEmitter {
         } else {
             log.info("已经连接成功");
         }
-        this.onStartServerEvent();
+        this.startListener();
     }
     destroy() {
         this.stopListener();
     }
-    startListener() {}
-    stopListener() {}
+    
 
     async connect() {
         const opts = {
@@ -158,7 +157,7 @@ export class Session extends EventEmitter {
 /*******************************************************************************************/
 
     // 监听服务的事件
-    onStartServerEvent() {
+    startListener() {
         // 本端开始发言通知
         this.socket.response("start_speak_notify", () => {
             this.emit('start_speak_notify');
@@ -239,6 +238,30 @@ export class Session extends EventEmitter {
         this.socket.response("user_unpublish_share_notify",(res: any) => {
             this.emit('user_unpublish_share_notify',res);
         });
+    }
+
+    stopListener() {
+        this.socket.removeEvent("connect");
+        this.socket.removeEvent("start_speak_notify");
+        this.socket.removeEvent("stop_speak_notify");
+        this.socket.removeEvent("kick_out_notify");
+        this.socket.removeEvent("user_join_notify");
+        this.socket.removeEvent("user_leave_notify");
+        this.socket.removeEvent("meeting_mode_change_notify");
+        this.socket.removeEvent("host_control_notify");
+        this.socket.removeEvent("raise_hand_notify");
+        this.socket.removeEvent("host_transfer_notify");
+        this.socket.removeEvent("recv_ui_msg_notify");
+        this.socket.removeEvent("user_start_speak_notify");
+        this.socket.removeEvent("user_stop_speak_notify");
+        this.socket.removeEvent("meeting_end_notify");
+        this.socket.removeEvent("meeting_exception_notify");
+        this.socket.removeEvent("user_publish_video_notify");
+        this.socket.removeEvent("user_unpublish_video_notify");
+        this.socket.removeEvent("user_publish_audio_notify");
+        this.socket.removeEvent("user_unpublish_audio_notify");
+        this.socket.removeEvent("user_publish_share_notify");
+        this.socket.removeEvent("user_unpublish_share_notify");
     }
 
 
