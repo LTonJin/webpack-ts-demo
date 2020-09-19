@@ -1,9 +1,9 @@
 import EventEmitter from "wolfy87-eventemitter";
-import { config } from "../config";
-import { Logger } from "../utils/ButelLogger";
+import { config } from "./config";
+import { Logger } from "./utils/ButelLogger";
 const socketClient = require("socket.io-client");
-const socketPromise = require("./socket.io-promise").promise;
-const socketResponse = require("./socket.io-promise").response;
+const socketPromise = require("./utils/socket.io-promise").promise;
+const socketResponse = require("./utils/socket.io-promise").response;
 const log: any = new Logger("Session");
 
 export class Session extends EventEmitter {

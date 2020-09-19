@@ -1,5 +1,5 @@
 // Adds support for Promise to socket.io-client
-import { Logger } from "../utils/ButelLogger";
+import { Logger } from "./ButelLogger";
 const log: any = new Logger("socket.io-promise");
 
 exports.promise = function (socket: any) {

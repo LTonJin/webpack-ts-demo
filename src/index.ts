@@ -1,4 +1,4 @@
-import { ButelMeetingConnect } from "./butelmeetingconnect/ButelMeetingConnect";
+import { ButelMeetingConnect } from "./ButelMeetingConnect";
 import { config } from './config'
 
 function CreateInstance() {
@@ -11,13 +11,13 @@ const _sdk = {
 declare global {
   interface Window {
     ButelRTCSDK: object;
-    ButelRTCSDKCallback: Function;
+    // ButelRTCSDKCallback: Function;
   }
 }
 export default _sdk;
 
 window["ButelRTCSDK"] = _sdk;
 
-class ButelRTCSDKCallback {
-}
-window["ButelRTCSDKCallback"] = ButelRTCSDKCallback;
+// class ButelRTCSDKCallback {
+// }
+// window["ButelRTCSDKCallback"] = ButelRTCSDKCallback;

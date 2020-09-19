@@ -1,7 +1,7 @@
 import EventEmitter from "wolfy87-eventemitter";
-import { Session } from "../session/Session";
-import { LibMediasoupClient } from "../libmediasoupclient/LibMediasoupClient";
-import { Logger } from "../utils/ButelLogger";
+import { Session } from "./Session";
+import { LibMediasoupClient } from "./LibMediasoupClient";
+import { Logger } from "./utils/ButelLogger";
 const log: any = new Logger("MeetingConnect");
 
 export class MeetingConnect extends EventEmitter {
@@ -14,7 +14,7 @@ export class MeetingConnect extends EventEmitter {
     init() {
         this.startListener();
         this.session.init();
-        this.libMediasoupClient.init();
+        this.libMediasoupClient.init(this.session);
     }
     destroy() {
         this.stopListener();
@@ -32,18 +32,11 @@ export class MeetingConnect extends EventEmitter {
         // 本端开始发言通知
         this.session.on("start_speak_notify", () => {
             console.log("start_speak_notify");
-            this.meetingInfo.transportPramas.forEach( async (item: any) => {
+            this.meetingInfo.transportPramas.forEach(async (item: any) => {
                 if (item.direction === 0) {
-                    await this.libMediasoupClient.publish(this.session, {
-                        id: item.transportId,
-                        iceParameters: item.iceParameters,
-                        iceCandidates: item.iceCandidates,
-                        dtlsParameters: item.dtlsParameters,
-                    });
+                    await this.libMediasoupClient.publish();
                 }
-                
             });
-            
         });
 
         // 本端停止发言通知
@@ -95,14 +88,12 @@ export class MeetingConnect extends EventEmitter {
         this.session.on("user_start_speak_notify", (data: any) => {
             console.log(data, "user_start_speak_notify");
             if (document.getElementById(`remote_td_${data.userId}`)) {
-                
             } else {
-                const tdTemp:any = document.createElement("div");
+                const tdTemp: any = document.createElement("div");
                 tdTemp.id = "remote_td_" + data.userId;
-                tdTemp.innerHTML = `<div>remote_video_${data.userId}</div><video id="remote_video_${data.userId}" controls autoplay playsinline></video>`
+                tdTemp.innerHTML = `<div>remote_video_${data.userId}</div><video id="remote_video_${data.userId}" controls autoplay playsinline></video>`;
                 document.body.appendChild(tdTemp);
             }
-            
         });
 
         // 其他用户停止发言通知
@@ -123,11 +114,7 @@ export class MeetingConnect extends EventEmitter {
         // 发言者发布视频通知
         this.session.on("user_publish_video_notify", async (data: any) => {
             console.log(data, "user_publish_video_notify");
-            this.libMediasoupClient.subscribe(
-                data.userId,
-                "video",
-                this.session
-            );
+            this.libMediasoupClient.subscribe(data.userId, "video");
         });
 
         // 发言者取消发布视频流通知
@@ -176,26 +163,25 @@ export class MeetingConnect extends EventEmitter {
             await this.libMediasoupClient.loadDevice(res.routerRtpCapabilities);
             this.meetingInfo = res;
             res.transportPramas.forEach(async (item: any) => {
-                // 加入会议并且申请发言成功
-                if (item.direction === 0 && isSpeak) {
+                // 加入会议成功创建接受发送transport
+                if (item.direction === 0) {
                     // produce的transport参数
-                    // await this.libMediasoupClient.publish(this.session, {
-                    //     id: item.transportId,
-                    //     iceParameters: item.iceParameters,
-                    //     iceCandidates: item.iceCandidates,
-                    //     dtlsParameters: item.dtlsParameters,
-                    // });
+                    const params = {
+                        id: item.transportId,
+                        iceParameters: item.iceParameters,
+                        iceCandidates: item.iceCandidates,
+                        dtlsParameters: item.dtlsParameters,
+                    };
+                    this.libMediasoupClient.createSendTransport(params);
                 } else if (item.direction === 1) {
                     // consume的transport参数
-                    await this.libMediasoupClient.createRecvTransport(
-                        this.session,
-                        {
-                            id: item.transportId,
-                            iceParameters: item.iceParameters,
-                            iceCandidates: item.iceCandidates,
-                            dtlsParameters: item.dtlsParameters,
-                        }
-                    );
+                    const params = {
+                        id: item.transportId,
+                        iceParameters: item.iceParameters,
+                        iceCandidates: item.iceCandidates,
+                        dtlsParameters: item.dtlsParameters,
+                    };
+                    await this.libMediasoupClient.createRecvTransport(params);
                     // 发言人列表循环订阅
                     // res.speakers.forEach((speaker: any) => {
                     //     if (speaker.videoStreamState === 1) {
@@ -232,6 +218,6 @@ export class MeetingConnect extends EventEmitter {
     }
 
     async unpublish() {
-        this.libMediasoupClient.unpublish('video', this.session);
+        this.libMediasoupClient.unpublish("video");
     }
 }

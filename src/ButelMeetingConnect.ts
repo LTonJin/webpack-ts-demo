@@ -1,9 +1,9 @@
 import EventEmitter from "wolfy87-eventemitter";
-import { MeetingConnect } from "../meetingconnect/MeetingConnect";
-import { _ajax } from "../utils/ajax";
-import { _objToParamAndSerialize } from "../utils/utils";
-import { config } from "../config";
-import { Logger } from "../utils/ButelLogger";
+import { MeetingConnect } from "./MeetingConnect";
+import { _ajax } from "./utils/ajax";
+import { _objToParamAndSerialize } from "./utils/utils";
+import { config } from "./config";
+import { Logger } from "./utils/ButelLogger";
 const log: any = new Logger("ButelMeetingConnect");
 
 // const meetingConnect = new MeetingConnect();
