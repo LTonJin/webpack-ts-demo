@@ -126,8 +126,8 @@ export class Session extends EventEmitter {
     }
 
     // 关闭consume
-    async close_consume( kind: string) {
-        return await this.socket.request("close_consume", { kind });
+    async close_consume( userId:string, kind: string) {
+        return await this.socket.request("close_consume", { userId, kind });
     }
 
     // 启动consume

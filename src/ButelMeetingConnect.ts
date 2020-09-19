@@ -7,12 +7,37 @@ import { Logger } from "./utils/ButelLogger";
 const log: any = new Logger("ButelMeetingConnect");
 
 // const meetingConnect = new MeetingConnect();
+interface callbackObject {
+    "OnStartSpeak": Function;
+    "OnStopSpeak": Function;
+    "OnMeetingEnd": Function;
+    "OnKickout": Function;
+    "OnUserJoin": Function;
+    "OnUserLeave": Function;
+    "OnUserOpenCamera": Function;
+    "OnUserCloseCamera": Function;
+    "OnUserOpenMic": Function;
+    "OnUserCloseMic": Function;
+    "OnUserOpenShare": Function;
+    "OnUserCloseShare": Function;
+    "OnUserVideoAngleChange": Function;//发言者视频画面角度变化通;
+    "OnMeetingBreak": Function;//会议被中断通知，此时UI应该不允许做其他操;
+    "OnMeetingRestore": Function;//会议中断恢复通知
+    "OnMeetingDisConnect": Function;//会议网关的连接中断，只有在未参会时回调该接口
+    "OnMeetingException": Function;//会议底层异常通知
+    "OnMeetingQos": Function;//会议QOS信息通知，定时回调
+    "OnMediaAdapterRequest": Function;//本地发言用户媒体流自适应调整通知
+    "OnMeetingModeChange": Function;//会议模式被改变通知
+    "OnHostControl": Function;//收到主持人远程控制摄像头和Mic的通知
+    "OnRaiseHandEvent": Function;//主持人收到用户举手的通知
+}
 
 export class ButelMeetingConnect extends EventEmitter {
     
     meetingConnect = new MeetingConnect();
 
     user_token_: string = "";
+    meetingCallback = {};
     constructor() {
         super();
     }
@@ -28,6 +53,11 @@ export class ButelMeetingConnect extends EventEmitter {
         console.log(params);
         this.meetingConnect.init();
         this.meetingConnect.destroy();
+    }
+
+    // 设置回调
+    SetCallback(callbackObject: callbackObject) {
+        this.meetingCallback = callbackObject;
     }
 
     // 创建会议
