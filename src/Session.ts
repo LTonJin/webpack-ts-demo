@@ -16,7 +16,6 @@ export class Session extends EventEmitter {
 
     init() {
         log.info("初始化");
-        this.startListener();
         if (!this._isConnected) {
             this.connect();
         } else {
@@ -26,6 +25,7 @@ export class Session extends EventEmitter {
     }
     destroy() {
         this.stopListener();
+        this.socket.close()
     }
     
 
@@ -36,6 +36,8 @@ export class Session extends EventEmitter {
         };
         const serverUrl = `https://${config.hostname}:${config.listenPort}`;
         this.socket = socketClient(serverUrl, opts);
+        console.log('socket', this.socket);
+        
         this.socket.request = socketPromise(this.socket);
         this.socket.response = socketResponse(this.socket);
         this.socket.on("connect", async () => {
@@ -99,6 +101,11 @@ export class Session extends EventEmitter {
         return await this.socket.request("ask_for_speak");
     }
 
+    // 请求停止发言
+    async ask_for_stop_speak() {
+        return await this.socket.request("ask_for_stop_speak");
+    }
+
     // 连接produce
     async produce_connect(dtlsParameters: any) {
         return await this.socket.request("produce_connect", {dtlsParameters});
@@ -145,8 +152,8 @@ export class Session extends EventEmitter {
     }
 
     // 指定发言人
-    async set_speaker(userId:string, msgId: number, msgData: string) {
-        return await this.socket.request("set_speaker", {userId, msgId, msgData});
+    async set_speaker(userId:string, cancelUserId: string) {
+        return await this.socket.request("set_speaker", {userId, cancelUserId});
     }
 
     // 请出会议室

@@ -12,9 +12,11 @@
     <video id="local_video" controls autoplay playsinline></video>
 
     <button id="init">初始化</button>
-    <button id="create_meeting">创建会议</button>
+    <!-- <button id="create_meeting">创建会议</button> -->
     <button id="join_meeting">加入会议</button>
+    <button id="publish">发布</button>
     <button id="unpublish">取消发布</button>
+    <button id="huoqushebei">获取设备</button>
     <script>
         const initDom = document.getElementById('init');
         var instance;
@@ -23,15 +25,8 @@
             instance = window["ButelRTCSDK"].CreateInstance();
             instance.Init('62000334', '123456', () => {}, () => {});
         }
-        document.getElementById('create_meeting').onclick = function() {
-            instance.CreateMeeting((res)=>{
-                console.log(res);
-                
-            }, (err)=> {
-                console.log(err);
-                
-            })
-        }
+
+
         document.getElementById('join_meeting').onclick = function() {
             instance.JoinMeeting('62000334', true, 'ltj', () => {
                 console.log('success');
@@ -44,6 +39,15 @@
 
         document.getElementById('unpublish').onclick = function() {
             instance.unpublish(() => {
+                console.log('success');
+                
+            }, () => {
+                console.log('error');
+                
+            });
+        }
+        document.getElementById('huoqushebei').onclick = function() {
+            instance.GetMediaDevices(() => {
                 console.log('success');
                 
             }, () => {

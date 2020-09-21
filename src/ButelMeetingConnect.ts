@@ -4,42 +4,22 @@ import { _ajax } from "./utils/ajax";
 import { _objToParamAndSerialize } from "./utils/utils";
 import { config } from "./config";
 import { Logger } from "./utils/ButelLogger";
+import store from './utils/store'
 const log: any = new Logger("ButelMeetingConnect");
 
-// const meetingConnect = new MeetingConnect();
-interface callbackObject {
-    "OnStartSpeak": Function;
-    "OnStopSpeak": Function;
-    "OnMeetingEnd": Function;
-    "OnKickout": Function;
-    "OnUserJoin": Function;
-    "OnUserLeave": Function;
-    "OnUserOpenCamera": Function;
-    "OnUserCloseCamera": Function;
-    "OnUserOpenMic": Function;
-    "OnUserCloseMic": Function;
-    "OnUserOpenShare": Function;
-    "OnUserCloseShare": Function;
-    "OnUserVideoAngleChange": Function;//发言者视频画面角度变化通;
-    "OnMeetingBreak": Function;//会议被中断通知，此时UI应该不允许做其他操;
-    "OnMeetingRestore": Function;//会议中断恢复通知
-    "OnMeetingDisConnect": Function;//会议网关的连接中断，只有在未参会时回调该接口
-    "OnMeetingException": Function;//会议底层异常通知
-    "OnMeetingQos": Function;//会议QOS信息通知，定时回调
-    "OnMediaAdapterRequest": Function;//本地发言用户媒体流自适应调整通知
-    "OnMeetingModeChange": Function;//会议模式被改变通知
-    "OnHostControl": Function;//收到主持人远程控制摄像头和Mic的通知
-    "OnRaiseHandEvent": Function;//主持人收到用户举手的通知
-}
 
 export class ButelMeetingConnect extends EventEmitter {
-    
     meetingConnect = new MeetingConnect();
 
+    user_id_: string = "";
+    user_uid_: string = "";
+    user_nickname_: string = "";
     user_token_: string = "";
-    meetingCallback = {};
+    init_token_flag_: boolean = false;
+
     constructor() {
         super();
+        this.meetingConnect.init();
     }
 
     // 初始化
@@ -51,14 +31,63 @@ export class ButelMeetingConnect extends EventEmitter {
             error: error,
         };
         console.log(params);
-        this.meetingConnect.init();
-        this.meetingConnect.destroy();
+        var paramObj = {
+            params: {
+                account: userId,
+                password: passwd,
+                //"appKey": "0ea8689329a446a5b67fc360ef195fc4",
+                appKey: config.AppKey_,
+                imei: "imei",
+                productId: "all",
+                deviceType: "IOS_KESHI",
+                appType: "pc",
+            },
+            service: "authorize",
+        };
+
+        //meeting user login get token
+        var url = config.host_auth_ + "auth?" + _objToParamAndSerialize(paramObj);
+        _ajax({
+            url: url,
+            method: "post",
+            headers: {
+                "Content-Type": "text/plain;charset=utf-8",
+            },
+            success: (data: any) => {
+                if (+data.status === 0) {
+                    this.user_id_ = data["user"]["nubeNumber"]; //使用init返回的视讯号
+                    store.user_id_ = this.user_id_;
+                    this.user_token_ = data["user"]["accessToken"];
+                    this.user_uid_ = data["user"]["uid"];
+                    if (data["user"]["nickname"])
+                        this.user_nickname_ = data["user"]["nickname"];
+                    else this.user_nickname_ = "";
+                    this.init_token_flag_ = true;
+
+                    //会议鉴权接口调用成功，回调成功函数，进行下一步操作
+                    success();
+                } else if (+data.status === -79) {
+                    error({ code: -999, desc: "service internal error" });
+                } else if (+data.status === -1) {
+                    error({ code: -3, desc: "param error" });
+                } else {
+                    error({ code: data.status, desc: data.message });
+                }
+            },
+            error: function (err: any) {
+                error(err);
+            },
+        });
     }
 
-    // 设置回调
-    SetCallback(callbackObject: callbackObject) {
-        this.meetingCallback = callbackObject;
+    // 有token初始化
+    InitWithToken(userid: string, token: string, success: any, error: any) {
+        this.user_id_ = userid;
+        store.user_id_ = userid;
+        this.user_token_ = token;
+        this.user_nickname_ = "";
     }
+
 
     // 创建会议
     CreateMeeting(
@@ -132,14 +161,31 @@ export class ButelMeetingConnect extends EventEmitter {
         });
     }
     // 加入会议
-    JoinMeeting(meetingId: string, isSpeak: boolean, nickname: string, success: Function, error: Function) {
-        this.meetingConnect.join_meeting(meetingId, "232323", "70827739", isSpeak, nickname).then(res => {
-            // log.info('JoinMeeting success ', res);
+    JoinMeeting(
+        meetingId: string,
+        isSpeak: boolean,
+        nickname: string,
+        success: Function,
+        error: Function
+    ) {
+        this.meetingConnect
+            .join_meeting(meetingId, "232323", "70827739", isSpeak, nickname)
+            .then((res) => {
+                log.info("JoinMeeting success ", res);
+                success(res);
+            })
+            .catch((err) => {
+                log.info("JoinMeeting error ", err);
+                error(err);
+            });
+    }
+    GetMediaDevices(success:any, error:any) {
+        this.meetingConnect.GetMediaDevices().then(res => {
+            console.log(res);
             success(res);
-        }).catch(err => {
-            // log.info('JoinMeeting error ', err);
-            error(err)
+        }, err => {
+            console.log(err);
+            error(err);
         })
     }
-
 }

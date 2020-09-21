@@ -1,7 +1,7 @@
 const mediasoup = require("mediasoup-client");
 import { Logger } from "./utils/ButelLogger";
 const log: any = new Logger("LibMediasoupClient");
-import { createVideo } from './utils/createVideo'
+import { createVideo } from "./utils/createVideo";
 
 
 export class LibMediasoupClient {
@@ -9,8 +9,11 @@ export class LibMediasoupClient {
     device: any;
     sendTransport: any; // 发送transport
     recvTransport: any; // 接收transport
+
     videoProducer: any;
     audioProducer: any;
+    videoShareProducer: any;
+
     consumerList: Map<string, any> = new Map(); // 所消费的流的信息
 
     localMediaStream = new Map(); // 本地音视频流和video dom
@@ -33,6 +36,7 @@ export class LibMediasoupClient {
         this.recvTransport = null;
         this.videoProducer = null;
         this.audioProducer = null;
+        this.videoShareProducer = null;
         this.consumerList = new Map();
         this.localMediaStream = new Map();
         this.localShareStream = new Map();
@@ -236,14 +240,12 @@ export class LibMediasoupClient {
                 log.info("发布音频流成功");
             } else if (kind === "share") {
                 log.info("屏幕分享");
-                this.videoProducer = await this.sendTransport.produce(params);
+                this.videoShareProducer = await this.sendTransport.produce(params);
                 log.info("屏幕分享成功");
             } else {
                 // 不传kind，默认音视频都发布
                 log.info("发布音视频");
                 this.videoProducer = await this.sendTransport.produce(params);
-                console.log("this.videoProducer111", this.videoProducer);
-
                 this.audioProducer = await this.sendTransport.produce({
                     track: audioTrack,
                     codecOptions: {
@@ -259,33 +261,24 @@ export class LibMediasoupClient {
     }
 
     // 取消发布
-    async unpublish(kind: string) {
+    async unpublish(kind?: string) {
         log.info("取消发布 ", kind);
         const res = await this.session.close_produce(kind);
         res.ret !== 0 && log.info("关闭远端produce ", kind, "失败");
         if (kind === "video") {
-            // const stream: any = this.localMediaStream.get('stream').get('video');
-            // stream.getVideoTracks()?.forEach((track: any) => {
-            //     track.stop();
-            // });
             this.videoProducer.close();
             this.videoProducer = null;
-            document.body.removeChild(this.localMediaStream.get("dom"));
         } else if (kind === "audio") {
-            // const stream: any = this.localMediaStream.get('stream').get('audio');
-            // stream.getAudioTracks()?.forEach((track: any) => {
-            //     track.stop();
-            // });
             this.audioProducer.close();
             this.audioProducer = null;
         } else if (kind === "share") {
-            // const stream: any = this.localShareStream.get('stream').get('share');
-            // stream.getVideoTracks()?.forEach((track: any) => {
-            //     track.stop();
-            // });
+            this.videoShareProducer.close();
+            this.videoShareProducer = null;
+        } else {
             this.videoProducer.close();
             this.videoProducer = null;
-            document.body.removeChild(this.localShareStream.get("dom"));
+            this.audioProducer.close();
+            this.audioProducer = null;
         }
         log.info("取消发布成功 ");
     }
@@ -414,8 +407,11 @@ export class LibMediasoupClient {
             log.info(`远端 close_consume 关闭成功`);
             const userInfo = this.consumerList.get(userId);
             userInfo.get("consumer").get(kind).close();
+            userInfo.get("consumer").delete(kind);
         } catch (error) {
-            log.error(`${error} 取消订阅失败`)
+            log.error(`${error} 取消订阅失败`);
         }
     }
+
+    
 }
