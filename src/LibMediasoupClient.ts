@@ -3,7 +3,6 @@ import { Logger } from "./utils/ButelLogger";
 const log: any = new Logger("LibMediasoupClient");
 import { createVideo } from "./utils/createVideo";
 
-
 export class LibMediasoupClient {
     session: any;
     device: any;
@@ -66,6 +65,8 @@ export class LibMediasoupClient {
     async createSendTransport(data: any) {
         log.info("createSendTransport参数 ", data);
         this.sendTransport = this.device.createSendTransport(data);
+        console.log(this.sendTransport, "this.sendTransport");
+
         this.sendTransport.on(
             "connect",
             async ({ dtlsParameters }: any, callback: any, errback: any) => {
@@ -195,41 +196,28 @@ export class LibMediasoupClient {
     }
 
     // 发布
-    async publish(kind?: string) {
+    async publish(kind: string, stream: any) {
         try {
             log.info("本地produce");
-            await this.getUserMedia("audio");
-            await this.getUserMedia("video");
-            const videoDom = this.localMediaStream.get("dom");
-            const streamVideo = this.localMediaStream
-                .get("stream")
-                .get("video"); // 视频流
-            const streamAudio = this.localMediaStream
-                .get("stream")
-                .get("audio"); // 音频流
-            videoDom.srcObject = streamVideo;
-            document.body.appendChild(videoDom);
-
             // 获取视频track
-            const track = streamVideo.getVideoTracks()[0];
-            const params: any = { track };
-            params.encodings = [
-                { maxBitrate: 100000 },
-                // { maxBitrate: 300000 },
-                // { maxBitrate: 900000 },
-            ];
-            params.codecOptions = {
-                videoGoogleStartBitrate: 1000,
+            const track = stream.getVideoTracks()[0];
+            const params: any = {
+                track,
+                encodings: [{ maxBitrate: 100000 }],
+                codecOptions: {
+                    videoGoogleStartBitrate: 1000,
+                },
             };
 
-            // 获取音频track
-            const audioTrack = streamAudio.getAudioTracks()[0];
             if (kind === "video") {
                 log.info("发布视频流");
                 this.videoProducer = await this.sendTransport.produce(params);
                 log.info("发布视频流成功");
+                console.log(this.videoProducer, "this.videoProducer");
             } else if (kind === "audio") {
                 log.info("发布音频流");
+                // 获取音频track
+                const audioTrack = stream.getAudioTracks()[0];
                 this.audioProducer = await this.sendTransport.produce({
                     track: audioTrack,
                     codecOptions: {
@@ -240,20 +228,11 @@ export class LibMediasoupClient {
                 log.info("发布音频流成功");
             } else if (kind === "share") {
                 log.info("屏幕分享");
-                this.videoShareProducer = await this.sendTransport.produce(params);
+                this.videoShareProducer = await this.sendTransport.produce(
+                    params
+                );
+                console.log(this.videoShareProducer, "this.videoShareProducer");
                 log.info("屏幕分享成功");
-            } else {
-                // 不传kind，默认音视频都发布
-                log.info("发布音视频");
-                this.videoProducer = await this.sendTransport.produce(params);
-                this.audioProducer = await this.sendTransport.produce({
-                    track: audioTrack,
-                    codecOptions: {
-                        opusStereo: 1,
-                        opusDtx: 1,
-                    },
-                });
-                log.info("发布音视频成功");
             }
         } catch (err) {
             log.info("创建本地produce失败", err);
@@ -284,7 +263,7 @@ export class LibMediasoupClient {
     }
 
     // 获取媒体流
-    async getUserMedia(kind: "video" | "audio" | "share") {
+    async getUserMedia(kind: "video" | "audio" | "share", constraints: any) {
         if (!this.device.canProduce("video")) {
             log.error("cannot produce video");
             return;
@@ -299,15 +278,13 @@ export class LibMediasoupClient {
         try {
             const media: any = navigator.mediaDevices;
             if (kind === "video") {
-                {
-                    stream = await media.getUserMedia({ video: true });
-                    this.localMediaStream.get("stream").set("video", stream);
-                }
+                stream = await media.getUserMedia(constraints);
+                this.localMediaStream.get("stream").set("video", stream);
             } else if (kind === "audio") {
-                stream = await media.getUserMedia({ audio: true });
+                stream = await media.getUserMedia(constraints);
                 this.localMediaStream.get("stream").set("audio", stream);
             } else {
-                stream = await media.getDisplayMedia({ video: true });
+                stream = await media.getDisplayMedia(constraints);
                 this.localShareStream.get("stream").set("share", stream);
             }
         } catch (err) {
@@ -412,6 +389,4 @@ export class LibMediasoupClient {
             log.error(`${error} 取消订阅失败`);
         }
     }
-
-    
 }

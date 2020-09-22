@@ -4,9 +4,8 @@ import { _ajax } from "./utils/ajax";
 import { _objToParamAndSerialize } from "./utils/utils";
 import { config } from "./config";
 import { Logger } from "./utils/ButelLogger";
-import store from './utils/store'
+import store from "./utils/store";
 const log: any = new Logger("ButelMeetingConnect");
-
 
 export class ButelMeetingConnect extends EventEmitter {
     meetingConnect = new MeetingConnect();
@@ -20,6 +19,7 @@ export class ButelMeetingConnect extends EventEmitter {
     constructor() {
         super();
         this.meetingConnect.init();
+        this.startListener();
     }
 
     // 初始化
@@ -46,7 +46,8 @@ export class ButelMeetingConnect extends EventEmitter {
         };
 
         //meeting user login get token
-        var url = config.host_auth_ + "auth?" + _objToParamAndSerialize(paramObj);
+        var url =
+            config.host_auth_ + "auth?" + _objToParamAndSerialize(paramObj);
         _ajax({
             url: url,
             method: "post",
@@ -80,6 +81,10 @@ export class ButelMeetingConnect extends EventEmitter {
         });
     }
 
+    destroy() {
+        this.stopListener();
+    }
+
     // 有token初始化
     InitWithToken(userid: string, token: string, success: any, error: any) {
         this.user_id_ = userid;
@@ -87,7 +92,6 @@ export class ButelMeetingConnect extends EventEmitter {
         this.user_token_ = token;
         this.user_nickname_ = "";
     }
-
 
     // 创建会议
     CreateMeeting(
@@ -169,7 +173,7 @@ export class ButelMeetingConnect extends EventEmitter {
         error: Function
     ) {
         this.meetingConnect
-            .join_meeting(meetingId, "232323", "70827739", isSpeak, nickname)
+            .join_meeting("62000334", "token", meetingId, isSpeak, nickname)
             .then((res) => {
                 log.info("JoinMeeting success ", res);
                 success(res);
@@ -179,13 +183,53 @@ export class ButelMeetingConnect extends EventEmitter {
                 error(err);
             });
     }
-    GetMediaDevices(success:any, error:any) {
-        this.meetingConnect.GetMediaDevices().then(res => {
-            console.log(res);
-            success(res);
-        }, err => {
-            console.log(err);
-            error(err);
-        })
+    GetMediaDevices(success: any, error: any) {
+        this.meetingConnect.GetMediaDevices().then(
+            (res) => {
+                console.log(res);
+                success(res);
+            },
+            (err) => {
+                console.log(err);
+                error(err);
+            }
+        );
+    }
+
+    startListener() {
+        this.meetingConnect.on("onMediaAdapterRequest", (data: any) => {
+            this.emit("onMediaAdapterRequest", data);
+            log.info("onMediaAdapterRequest", data);
+        });
+        this.meetingConnect.on("onRemoteSpeakerForMaxVol", (data: any) => {
+            this.emit("onRemoteSpeakerForMaxVol", data);
+            log.info("onRemoteSpeakerForMaxVol", data);
+        });
+    }
+    stopListener() {
+        this.meetingConnect.removeEvent("onMediaAdapterRequest");
+        this.meetingConnect.removeEvent("onRemoteSpeakerForMaxVol");
+    }
+
+    // 设置配置参数接口
+    setConfig(configOption: any) {
+        configOption.NPS && (config.nps_ = configOption.NPS);
+        configOption.host_auth && (config.host_auth_ = configOption.host_auth);
+        configOption.host_meeting &&
+            (config.host_meeting_ = configOption.host_meeting);
+        configOption.AppKey && (config.AppKey_ = configOption.AppKey);
+        configOption.UpgradeServer &&
+            (config.upgrade_server_ = configOption.UpgradeServer);
+        configOption.EnableRemoteCamera &&
+            (config.enable_remote_camera_default_ =
+                configOption.EnableRemoteCamera);
+        configOption.EnableCamera &&
+            (config.enable_camera_ = configOption.EnableCamera);
+        configOption.EnableMic && (config.enable_mic_ = configOption.EnableMic);
+        configOption.CameraQualityLevel &&
+            (config.camera_quality_level_ = configOption.CameraQualityLevel);
+        configOption.ShareQualityLevel &&
+            (config.share_quality_level_default_ =
+                configOption.ShareQualityLevel);
     }
 }

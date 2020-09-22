@@ -48,6 +48,56 @@ export class MeetingConnect extends EventEmitter {
 
     camera_caps_: any; //当前摄像头能力参数
     mic_caps_: any; //当前Mic能力参数
+
+
+    // 远程发言折mic音量信息
+    remote_audioContext_: any = {};
+    remote_mediaStreamSource_: any = {};
+    remote_scriptProcessor_: any = {};
+    //远端发言者音量值
+    remote_mic_vol_: any = {};
+
+    max_vol_remote_speaker_id_: any;
+
+    //本地mic音量监控
+    audioContext_: any;
+    mediaStreamSource_: any;
+    scriptProcessor_: any;
+    //本地mic音量值
+    local_mic_vol_ = 0; //0-100
+
+    //默认摄像头视频质量档位
+    camera_quality_level_default_ = 4;
+    //默认共享视频质量档位
+    share_quality_level_default_ = 2;
+
+    //摄像头视频质量档位
+    camera_quality_level_ = this.camera_quality_level_default_;
+    //共享视频质量档位
+    share_quality_level_ = this.share_quality_level_default_;
+
+    //视频参数
+    video_width_:any;
+    video_height_:any;
+    video_framerate_:any;
+
+    //视频流码率
+    video_bitrate_default_ = 600;
+    video_bitrate_max_ = 600;
+    video_bitrate_min_ = 600;
+    video_bitrate_ = this.video_bitrate_default_;
+
+    //屏幕共享视频流码率
+    data_bitrate_default_ = 1200;
+    data_bitrate_max_ = 1200;
+    data_bitrate_min_ = 1200;
+    data_bitrate_ = this.data_bitrate_default_;
+
+    //屏幕共享视频流的帧率
+    data_framerate_ = 25;
+
+
+
     constructor() {
         super();
     }
@@ -73,14 +123,21 @@ export class MeetingConnect extends EventEmitter {
         });
 
         // 本端开始发言通知
-        this.session.on("start_speak_notify", () => {
+        this.session.on("start_speak_notify", async () => {
             console.log("start_speak_notify");
-            this.libMediasoupClient.publish();
+            const stream = await this.libMediasoupClient.getUserMedia("video", {
+                video: true,
+                audio: true,
+            });
+            await this.libMediasoupClient.publish("video", stream);
+            this.StartLocalMicVolMonitor();
         });
 
         // 本端停止发言通知
-        this.session.on("stop_speak_notify", () => {
+        this.session.on("stop_speak_notify", async () => {
             console.log("stop_speak_notify");
+            await this.libMediasoupClient.unpublish();
+            this.StopLocalMicVolMonitor();
         });
 
         // 本端被踢下线通知
@@ -156,13 +213,17 @@ export class MeetingConnect extends EventEmitter {
         });
 
         // 发言者发布音频流通知
-        this.session.on("user_publish_audio_notify", (data: any) => {
+        this.session.on("user_publish_audio_notify", async (data: any) => {
             console.log(data, "user_publish_audio_notify");
+            await this.libMediasoupClient.subscribe(data.userId, "video");
+            this.StartRemoteVolMonitor(data.userId);
         });
 
         // 发言者取消发布音频流通知
-        this.session.on("user_unpublish_audio_notify", (data: any) => {
+        this.session.on("user_unpublish_audio_notify", async (data: any) => {
             console.log(data, "user_unpublish_audio_notify");
+            await this.libMediasoupClient.unsubscribe(data.userId, "audio");
+            this.StopRemoteVolMonitor(data.userId);
         });
 
         // 发言者发布文档视频流通知
@@ -316,14 +377,16 @@ export class MeetingConnect extends EventEmitter {
         if (!videoContainer) return;
 
         // 发布流
-        await this.libMediasoupClient.publish();
+        const stream = await this.libMediasoupClient.getUserMedia("video", {
+            video: true,
+            audio: true,
+        });
+        await this.libMediasoupClient.publish("video", stream);
         //显示video对象
         var user_local_video_ = this.libMediasoupClient.localMediaStream.get(
             "dom"
         );
-        user_local_video_.srcObject = this.libMediasoupClient.localMediaStream
-            .get("stream")
-            .get("video");
+        user_local_video_.srcObject = stream;
 
         //页面video容器添加video对象
         videoContainer.appendChild(user_local_video_);
@@ -562,9 +625,397 @@ export class MeetingConnect extends EventEmitter {
                 width: setting.width,
             };
             this.camera_setting_ = data;
+            if (bitrate < 0) {
+                this.video_bitrate_ = this.video_bitrate_default_;
+                this.UpdateVideoBitrate(this.video_bitrate_default_);
+            } else {
+                this.video_bitrate_ = bitrate;
+                this.UpdateVideoBitrate(bitrate);
+            }
+
+            // 回调页面，通知码率变化
+            var pd: any = {};
+            pd.restype = 1;
+            pd.bitrate = this.video_bitrate_;
+            pd.framerate = framerate;
+            pd.width = width;
+            pd.height = height;
+            pd.bitrate_default = this.video_bitrate_default_;
+            this.emit("onMediaAdapterRequest", pd);
             log.info("UpdateCameraDeviceSettingInternal end", data);
         } catch (error) {
             log.error("UpdateCameraDeviceSettingInternal", error);
         }
+    }
+
+    // 动态更新本地摄像头视频流的码率
+    async UpdateVideoBitrate(bitrate: any) {
+        const parameters = this.libMediasoupClient.sendTransport.getParameters();
+        if (!parameters.encodings) {
+            parameters.encodings = [{}];
+        }
+        if (bitrate === "-1") {
+            delete parameters.encodings[0].maxBitrate;
+        } else {
+            parameters.encodings[0].maxBitrate = bitrate * 1000;
+        }
+        try {
+            await this.libMediasoupClient.sendTransport.setParameters();
+            log.info("set bitrate ", bitrate);
+        } catch (error) {
+            log.error("set bitrate ", error);
+        }
+    }
+
+    // 设置本地麦克风参数
+    async UpdateMicDeviceSetting(new_seeting: any) {
+        log.info("UpdateMicDeviceSetting", new_seeting);
+        const track = this.libMediasoupClient.audioProducer.track;
+        await track.applyConstraints(new_seeting);
+        var setting = track.getSettings();
+        this.mic_setting_ = {
+            channelCount: setting.channelCount,
+            sampleRate: setting.sampleRate,
+            sampleSize: setting.sampleSize,
+        };
+        log.info("UpdateMicDeviceSetting", setting);
+        // this.libMediasoupClient.localMediaStream
+        //     .get("stream")
+        //     .getAudioTracks()
+        //     .forEach(async (track: any) => {
+        //         await track.applyConstraints(JSON.parse(new_seeting))
+        //         var setting = track.getSettings();
+        //         this.mic_setting_ = {
+        //             channelCount: setting.channelCount,
+        //             sampleRate: setting.sampleRate,
+        //             sampleSize: setting.sampleSize,
+        //         };
+        //     });
+    }
+
+    // 启用/关闭本地摄像头
+    async EnableCamera(enabled: any) {
+        if (enabled === 0) {
+            await this.libMediasoupClient.unpublish("video");
+        } else {
+            const stream = await this.libMediasoupClient.getUserMedia("video", {
+                video: true,
+            });
+            await this.libMediasoupClient.publish("video", stream);
+        }
+    }
+
+    // 启用/关闭本地麦克风
+    async EnableMic(enabled: any) {
+        if (enabled === 0) {
+            await this.libMediasoupClient.unpublish("audio");
+        } else {
+            const stream = await this.libMediasoupClient.getUserMedia("audio", {
+                audio: true,
+            });
+            await this.libMediasoupClient.publish("audio", stream);
+        }
+    }
+
+    // 启动本地屏幕窗口共享
+    async StartScreenShare() {
+        const stream = await this.libMediasoupClient.getUserMedia("share", {
+            video: true,
+        });
+        await this.libMediasoupClient.publish("share", stream);
+    }
+
+    // 停止本地屏幕窗口共享
+    async StopScreenShare() {
+        await this.libMediasoupClient.unpublish("share");
+    }
+
+    // 获取本地发言者Mic音量值
+    async GetLocalMicVol() {
+        return this.local_mic_vol_;
+    }
+    //创建本地mic音量监控对象
+    StartLocalMicVolMonitor() {
+        log.info("StartLocalMicVolMonitor");
+        this.audioContext_ = new AudioContext();
+        try {
+            // 将麦克风的声音输入这个对象
+            this.mediaStreamSource_ = this.audioContext_.createMediaStreamSource(
+                this.libMediasoupClient.localMediaStream
+                    .get("stream")
+                    .get("audio")
+            );
+
+            // 创建一个音频分析对象，采样的缓冲区大小为4096，输入和输出都是单声道
+            this.scriptProcessor_ = this.audioContext_.createScriptProcessor(
+                8192,
+                2,
+                2
+            );
+
+            // 将该分析对象与麦克风音频进行连接
+            this.mediaStreamSource_.connect(this.scriptProcessor_);
+
+            // 此举无甚效果，仅仅是因为解决 Chrome 自身的 bug
+            this.scriptProcessor_.connect(this.audioContext_.destination);
+
+            // 开始处理音频
+            this.scriptProcessor_.onaudioprocess = (e: any) => {
+                // 获得缓冲区的输入音频，转换为包含了PCM通道数据的32位浮点数组
+                let buffer = e.inputBuffer.getChannelData(0);
+                // 获取缓冲区中最大的音量值
+                let maxVal = Math.max.apply(Math, buffer);
+                this.local_mic_vol_ = Math.round(maxVal * 100);
+                // 显示音量值
+                log.log("local mic vol: ", this.local_mic_vol_);
+            };
+        } catch (err) {
+            //在错误发生时怎么处理
+            log.error("StartLocalMicVolMonitor ", err.name, err.message);
+            if (this.scriptProcessor_) this.scriptProcessor_.disconnect();
+            if (this.mediaStreamSource_) this.mediaStreamSource_.disconnect();
+            if (this.audioContext_) this.audioContext_.close();
+
+            this.audioContext_ = null;
+            this.mediaStreamSource_ = null;
+            this.scriptProcessor_ = null;
+        }
+    }
+    StopLocalMicVolMonitor() {
+        log.info("StopLocalMicVolMonitor");
+
+        if (this.scriptProcessor_) this.scriptProcessor_.disconnect();
+        if (this.mediaStreamSource_) this.mediaStreamSource_.disconnect();
+        if (this.audioContext_) this.audioContext_.close();
+
+        this.audioContext_ = null;
+        this.mediaStreamSource_ = null;
+        this.scriptProcessor_ = null;
+    }
+
+    // 获取远端发言者Mic音量值
+    async GetRemoteMicVol(userId: string) {
+        const vol = this.remote_mic_vol_[userId];
+        if (vol) return vol;
+        return 0;
+    }
+
+    //创建Remote发言者的音量监控对象
+    StartRemoteVolMonitor(userid: string) {
+        log.info("StartRemoteVolMonitor userid=", userid);
+        const userInfo = this.libMediasoupClient.consumerList.get(userid);
+        if (!userInfo) return;
+
+        var ac = new AudioContext();
+        this.remote_audioContext_[userid] = ac;
+
+        // 将麦克风的声音输入这个对象
+        var ms = ac.createMediaStreamSource(
+            userInfo.get("consumer").get("audio")
+        );
+        this.remote_mediaStreamSource_[userid] = ms;
+
+        // 创建一个音频分析对象，采样的缓冲区大小为4096，输入和输出都是单声道
+        var sp = ac.createScriptProcessor(8192, 2, 2);
+        this.remote_scriptProcessor_[userid] = sp;
+
+        // 将该分析对象与麦克风音频进行连接
+        ms.connect(sp);
+
+        // 此举无甚效果，仅仅是因为解决 Chrome 自身的 bug
+        sp.connect(ac.destination);
+
+        // 开始处理音频
+        sp.onaudioprocess = (e) => {
+            // 获得缓冲区的输入音频，转换为包含了PCM通道数据的32位浮点数组
+            let buffer: any = e.inputBuffer.getChannelData(0);
+            // 获取缓冲区中最大的音量值
+            let maxVal = Math.max.apply(Math, buffer);
+            this.remote_mic_vol_[userid] = Math.round(maxVal * 100);
+            // 显示音量值
+            log.info(
+                "remote userid: ",
+                userid,
+                " vol: ",
+                this.remote_mic_vol_[userid]
+            );
+
+            //计算当前发言音量最大的发言者
+            var max_vol = 0;
+            var max_userid;
+            Object.keys(this.remote_mic_vol_).forEach((key) => {
+                if (this.remote_mic_vol_[key] > max_vol) {
+                    max_vol = this.remote_mic_vol_[key];
+                    max_userid = key;
+                }
+            });
+            if (
+                max_userid != undefined &&
+                max_userid != this.max_vol_remote_speaker_id_
+            ) {
+                this.max_vol_remote_speaker_id_ = max_userid;
+
+                var pd: any = {};
+                pd.userid = max_userid;
+                pd.vol = max_vol;
+                this.emit("onRemoteSpeakerForMaxVol", pd);
+            }
+        };
+    }
+    StopRemoteVolMonitor(userid: string) {
+        log.info("StopRemoteVolMonitor userid= ", userid);
+
+        if (this.remote_scriptProcessor_[userid])
+            this.remote_scriptProcessor_[userid].disconnect();
+        if (this.remote_mediaStreamSource_[userid])
+            this.remote_mediaStreamSource_[userid].disconnect();
+        if (this.remote_audioContext_[userid])
+            this.remote_audioContext_[userid].close();
+
+        this.remote_audioContext_[userid] = null;
+        this.remote_mediaStreamSource_[userid] = null;
+        this.remote_scriptProcessor_[userid] = null;
+    }
+
+    // 更改本地使用的摄像头
+    async UpdateLocalCamera(cameraid: any) {
+        await this.libMediasoupClient.unpublish("video");
+        var constraints: any = {};
+        if (cameraid == "-1") constraints["video"] = true;
+        else constraints["video"] = { deviceId: { exact: cameraid } };
+
+        // if (this.mic_id_ != "")
+        //     constraints["audio"] = { deviceId: { exact: this.mic_id_ } };
+        // else constraints["audio"] = true;
+        const stream = await this.libMediasoupClient.getUserMedia(
+            "video",
+            constraints
+        );
+        await this.libMediasoupClient.publish("video", stream);
+    }
+
+    // 更改本地使用的Mic
+    async UpdateLocalMic(micid: any) {
+        await this.libMediasoupClient.unpublish("audio");
+        var constraints: any = {};
+
+        if (micid == "-1") constraints["audio"] = true;
+        else constraints["audio"] = { deviceId: { exact: micid } };
+
+        // if (this.camera_id_ != "")
+        //     constraints["video"] = { deviceId: { exact: this.camera_id_ } };
+
+        const stream = await this.libMediasoupClient.getUserMedia(
+            "audio",
+            constraints
+        );
+        await this.libMediasoupClient.publish("audio", stream);
+    }
+
+    // 设置摄像头视频质量档位
+    SetCameraVideoQuality(level: number) {}
+    SetCameraVideoQualityInternal(level: number) {
+        /*
+			level为视频质量参数，定义如下：
+				1：超清		1080P(1920x1080)	25fps	2Mbps
+				2：高清		720P(1280x720)		25fps 	1.2Mbps
+				3：标清		VGA(640x360)		15fps	300Kbps//2020-3-9改，原来600
+							若摄像头不支持360分辨率，则改为640x480
+				4：流畅		144P(192x144)		15fps	150kbps
+				不设置的话，默认为流畅质量。
+			*/
+        log.info("SetCameraVideoQualityInternal ", level);
+
+        level = Number(level);
+        var h, w, fps, bitrate;
+        switch (level) {
+            case 1:
+                w = 1920;
+                h = 1080;
+                fps = 25;
+                bitrate = 2000;
+                break;
+            case 2:
+                w = 1280;
+                h = 720;
+                fps = 25;
+                bitrate = 1200;
+                break;
+            case 3:
+                w = 640;
+                h = 360;
+                fps = 15;
+                bitrate = 300;
+                break;
+            case 4:
+                w = 192;
+                h = 144;
+                fps = 15;
+                bitrate = 150;
+                break;
+            default:
+                //缺省为流畅质量-4
+                level = 4;
+                w = 192;
+                h = 144;
+                fps = 15;
+                bitrate = 150;
+                break;
+        }
+
+        this.camera_quality_level_ = level;
+
+        //检查档位参数是否超出当前使用的摄像头能力范围
+        if (w > this.camera_caps_.width.max) {
+            w = this.camera_caps_.width.max;
+            if (w >= 1280) {
+                w = 1280;
+                h = 720;
+            } else if (w >= 640) {
+                w = 640;
+                h = 360;
+            } else {
+                w = 192;
+                h = 144;
+            }
+
+            if (h > this.camera_caps_.height.max) {
+                h = this.camera_caps_.height.max;
+            }
+        }
+
+        this.SetCameraParams(w, h, fps, bitrate);
+
+        //更新摄像头视频流参数
+        this.UpdateCameraDeviceSettingInternal(w, h, fps, bitrate);
+
+        this.camera_setting_.width = w;
+        this.camera_setting_.height = h;
+        this.camera_setting_.frameRate = fps;
+
+        return 1; //设置成功
+    }
+    SetCameraParams(width:any, height:any, framerate:any, bitrate:any) {
+        log.info(
+            "SetCameraParams" +
+                " width=" +
+                width +
+                " height=" +
+                height +
+                " framerate=" +
+                framerate +
+                " bitrate=" +
+                bitrate
+        );
+
+        this.video_width_ = width;
+        this.video_height_ = height;
+        this.video_framerate_ = framerate;
+
+        //设置码率
+        this.video_bitrate_default_ = bitrate;
+        this.video_bitrate_ = this.video_bitrate_default_;
+        this.video_bitrate_max_ = this.video_bitrate_default_;
+        this.video_bitrate_min_ = this.video_bitrate_default_;
     }
 }

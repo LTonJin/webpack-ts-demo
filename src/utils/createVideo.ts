@@ -4,5 +4,6 @@ export function createVideo(id: string = "local") {
     dom.autoplay = true;
     dom.playsinline = true;
     dom.id = id;
+    dom.muted = id === "local" ? true : false;
     return dom;
 }
